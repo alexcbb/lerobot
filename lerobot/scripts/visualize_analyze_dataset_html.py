@@ -133,7 +133,7 @@ def run_server(
     filtered_data = pd.DataFrame()
     current_repo_id = None
 
-    csv_file = "./lerobot_datasets_2.csv"
+    csv_file = "./lerobot_datasets.csv"
     @app.route('/')
     def homepage():
         csv_last_modified = os.path.getmtime(csv_file)
