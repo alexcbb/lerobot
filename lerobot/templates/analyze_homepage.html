@@ -17,12 +17,12 @@
     <div class="fixed inset-0 bg-black bg-opacity-80"></div>
     <div class="relative z-10 flex flex-col items-center justify-center h-screen">
         <div class="text-center mb-8">
-            <h1 class="text-4xl font-bold mb-4">Use existing CSV file</h1>
-            <p class="text-lg">Last modified date : {{last_modified}} </p>
+            <h1 class="text-4xl font-bold mb-4">Filter LeRobot datasets</h1>
+            <p class="text-lg">All datasets uploaded before : {{last_modified}} </p>
             <form action="/upload" method="post" enctype="multipart/form-data" class="space-y-4">
                 <div class="flex justify-center">
                     <input type="number" id="existing" name="existing" value="1" hidden>
-                    <input type="submit" value="Use existing file" class="bg-blue-500 text-white px-4 py-2 rounded-md hover:bg-blue-600 transition duration-300">
+                    <input type="submit" value="Begin filtering" class="bg-blue-500 text-white px-4 py-2 rounded-md hover:bg-blue-600 transition duration-300">
                 </div>
             </form>
         </div>

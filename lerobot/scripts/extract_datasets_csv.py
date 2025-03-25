@@ -7,13 +7,12 @@ import os
 
 from lerobot.common.datasets.lerobot_dataset import LeRobotDatasetMetadata
 
-def fetch_lerobot_datasets():
-    api = HfApi()
+def fetch_lerobot_datasets(api: HfApi):
     datasets = api.list_datasets(tags="LeRobot")
     repo_ids = [dataset.id for dataset in datasets]
     return repo_ids
 
-def analyze_dataset_metadata(repo_id: str):
+def analyze_dataset_metadata(repo_id: str, api: HfApi):
     try:
         metadata = LeRobotDatasetMetadata(repo_id=repo_id, revision="v2.0")
     except Exception as e:
@@ -48,7 +47,8 @@ def analyze_dataset_metadata(repo_id: str):
             "features": ','.join(metadata.features.keys()),
             "chunks_size": metadata.chunks_size,
             "total_chunks": metadata.total_chunks,
-            "version": metadata._version
+            "version": metadata._version,
+            "creation_date": api.repo_info(repo_id=repo_id, repo_type="dataset").siblings[0].created_at
         }
         return info
     except Exception as e:
@@ -58,8 +58,9 @@ def analyze_dataset_metadata(repo_id: str):
 if __name__ == "__main__":
     logging.disable(logging.CRITICAL)
 
+    api = HfApi()
     # Get the list of dataset repo_ids
-    lerobot_datasets = fetch_lerobot_datasets()
+    lerobot_datasets = fetch_lerobot_datasets(api)
     print(f"Total LeRobot datasets found: {len(lerobot_datasets)}")
 
     file = "lerobot_datasets.csv"
@@ -75,7 +76,7 @@ if __name__ == "__main__":
     # Collect all dataset info
     dataset_infos = []
     for repo_id in tqdm(lerobot_datasets):
-        info = analyze_dataset_metadata(repo_id)
+        info = analyze_dataset_metadata(repo_id, api)
         if info is not None:
             dataset_infos.append(info)
 
