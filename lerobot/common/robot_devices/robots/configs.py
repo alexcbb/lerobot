@@ -413,14 +413,14 @@ class MossRobotConfig(ManipulatorRobotConfig):
 
     cameras: dict[str, CameraConfig] = field(
         default_factory=lambda: {
-            "realsense_top": OpenCVCameraConfig(
-                camera_index=0,
+            "front": OpenCVCameraConfig(
+                camera_index=4,
                 fps=30,
                 width=640,
                 height=480,
             ),
-            "realsense_side": OpenCVCameraConfig(
-                camera_index=1,
+            "back": OpenCVCameraConfig(
+                camera_index=6,
                 fps=30,
                 width=640,
                 height=480,
