@@ -5,16 +5,13 @@
     <title>Filter data</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script>
-        // Ensure robotFpsMap is defined and initialized
         const robotFpsMap = JSON.parse('{{ robot_fps_map | safe }}');
-        let firstTime = true;
-
         function toggleCheckboxes(action, group) {
             const checkboxes = document.querySelectorAll(`input[name="${group}"]`);
             checkboxes.forEach(checkbox => {
                 checkbox.checked = action === 'select';
             });
-            updateFpsOptions(action === 'select');
+            submitForm();
         }
 
         function updateFpsOptions(isChecked) {
@@ -29,10 +26,6 @@
 
             const fpsContainer = document.getElementById('fps-container');
             fpsContainer.innerHTML = '';
-            if (firstTime) {
-                isChecked = true;
-                firstTime = false;
-            }
 
             fpsSet.forEach(fps => {
                 const div = document.createElement('div');
@@ -42,21 +35,67 @@
                 `;
                 fpsContainer.appendChild(div);
             });
+
+            const fpsCheckboxes = document.querySelectorAll('input[name="fps"]');
+            fpsCheckboxes.forEach(checkbox => checkbox.addEventListener('change', submitForm));
+        }
+        function submitForm() {
+            const formData = new FormData(document.querySelector('form'));
+            fetch('/submit', {
+                method: 'POST',
+                body: formData
+            })
+            .then(response => response.json())
+            .then(data => {
+                updateDatasetList(data.datasets, data.totalDatasets);
+            })
+            .catch(error => console.error('Error:', error));
+        }
+
+        function updateDatasetList(datasets, totalDatasets) {
+            const datasetContainer = document.querySelector('.grid.grid-cols-1.md\\:grid-cols-2.lg\\:grid-cols-3.gap-6');
+            datasetContainer.innerHTML = '';
+            datasets.forEach(dataset => {
+                const div = document.createElement('div');
+                div.className = 'bg-white p-4 rounded shadow text-gray-900';
+                div.innerHTML = `
+                    <h2 class="text-xl font-semibold">${dataset.name}</h2>
+                    <p class="text-gray-600">"${dataset.task_description}"</p>
+                `;
+                datasetContainer.appendChild(div);
+            });
+
+            const totalDatasetsElement = document.querySelector('p.text-lg.mb-4.font-bold');
+            totalDatasetsElement.textContent = `Total Datasets: ${totalDatasets}`;
         }
 
         document.addEventListener('DOMContentLoaded', () => {
             const robotTypeCheckboxes = document.querySelectorAll('input[name="robot_type"]');
             robotTypeCheckboxes.forEach(checkbox => {
-                checkbox.addEventListener('change', () => updateFpsOptions(checkbox.checked));
+                checkbox.addEventListener('change', () => {
+                    updateFpsOptions(true);
+                    submitForm();
+                });
             });
-            updateFpsOptions(true); // Initialize FPS options based on default checked robot types
 
-            // Check for an alert message and display it
-            const alertMessage = '{{ alert_message | safe }}';
-            if (alertMessage) {
-                alert(alertMessage); // Display the alert message in a JavaScript alert box
-            }
+            document.getElementById('frames').addEventListener('change', updateFrameValue);
+            document.getElementById('episodes').addEventListener('change', updateEpisodeValue);
+            document.getElementById('tasks').addEventListener('change', submitForm);
+
+            updateFpsOptions(true);
         });
+
+        function updateFrameValue() {
+            const frameValue = document.getElementById('frames').value;
+            document.getElementById('frameValue').textContent = frameValue;
+            submitForm();
+        }
+
+        function updateEpisodeValue() {
+            const episodeValue = document.getElementById('episodes').value;
+            document.getElementById('episodeValue').textContent = episodeValue;
+            submitForm();
+        }
     </script>
 </head>
 
@@ -82,7 +121,7 @@
                     <div class="h-64 overflow-y-auto border rounded-md p-2 mt-2 space-y-2">
                         {% for type in robot_types %}
                             <div>
-                                <input type="checkbox" id="robot_type_{{ loop.index }}" name="robot_type" value="{{ type }}" checked>
+                                <input type="checkbox" id="robot_type_{{ loop.index }}" name="robot_type" value="{{ type }}" checked onchange="submitForm()">
                                 <label for="robot_type_{{ loop.index }}" class="text-gray-700 ml-2">{{ type }}</label>
                             </div>
                         {% endfor %}
@@ -99,22 +138,21 @@
                 </div>
 
                 <div>
-                    <label for="frames" class="block text-gray-700">Minimum number of frames :</label>
-                    <input type="number" id="frames" name="frames" value="{{ min_frames }}" class="mt-1 p-2 w-full border rounded-md">
+                    <label for="frames" class="block text-gray-700">Minimum number of frames : <span id="frameValue">{{ min_frames }}</span> (max. 100000)</label>
+                    <input type="range" id="frames" name="frames" min="0" max="100000" value="{{ min_frames }}" class="mt-1 p-2 w-full" oninput="updateFrameValue()">
                 </div>
                 <div>
-                    <label for="episodes" class="block text-gray-700">Minimum number of episodes :</label>
-                    <input type="number" id="episodes" name="episodes" value="{{ min_eps }}" class="mt-1 p-2 w-full border rounded-md">
+                    <label for="episodes" class="block text-gray-700">Minimum number of episodes : <span id="episodeValue">{{ min_eps }}</span> (max. 200)</label>
+                    <input type="range" id="episodes" name="episodes" min="0" max="200" value="{{ min_eps }}" class="mt-1 p-2 w-full" oninput="updateEpisodeValue()">
                 </div>
 
                 <div>
                     <label for="tasks" class="block text-gray-700">Max number of tasks :</label>
-                    <input type="number" id="tasks" name="tasks" value="100" class="mt-1 p-2 w-full border rounded-md">
+                    <input type="number" id="tasks" name="tasks" value="100" class="mt-1 p-2 w-full border rounded-md" onchange="submitForm()">
                 </div>
-
                 <div>
                     <input type="number" id="finished" name="finished" value="0" hidden>
-                    <input type="submit" value="Filter" class="w-full bg-blue-500 text-white p-2 rounded-md hover:bg-blue-600">
+                    <input type="submit" value="Filter" class="w-full bg-blue-500 text-white p-2 rounded-md hover:bg-blue-600" hidden>
                 </div>
             </form>
             <form action="/submit" method="post" class="space-y-4">

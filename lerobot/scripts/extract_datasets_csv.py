@@ -4,6 +4,7 @@ import pandas as pd
 from tqdm import tqdm
 import json
 import os
+import argparse
 
 from lerobot.common.datasets.lerobot_dataset import LeRobotDatasetMetadata
 
@@ -48,7 +49,7 @@ def analyze_dataset_metadata(repo_id: str, api: HfApi):
             "chunks_size": metadata.chunks_size,
             "total_chunks": metadata.total_chunks,
             "version": metadata._version,
-            "creation_date": api.repo_info(repo_id=repo_id, repo_type="dataset").siblings[0].created_at
+            "creation_date": api.repo_info(repo_id=repo_id, repo_type="dataset").last_modified
         }
         return info
     except Exception as e:
@@ -57,21 +58,27 @@ def analyze_dataset_metadata(repo_id: str, api: HfApi):
 
 if __name__ == "__main__":
     logging.disable(logging.CRITICAL)
+    parser=argparse.ArgumentParser()
+    parser.add_argument('--file', type=str, default='', help='File to load')
+    args=parser.parse_args()
 
     api = HfApi()
     # Get the list of dataset repo_ids
     lerobot_datasets = fetch_lerobot_datasets(api)
     print(f"Total LeRobot datasets found: {len(lerobot_datasets)}")
 
-    file = "lerobot_datasets.csv"
+    file = args.file
     if file == '' or not file.endswith('.csv') or not os.path.exists(file):
         print(f"File {file} does not exist")
     if file:
         df = pd.read_csv(file)
+        existing_repo_ids = df['repo_id'].values
+    else:
+        df = pd.DataFrame()
+        existing_repo_ids = []
     print(f"Loaded {len(df)} datasets from {file}")
     print(f"There is {len(lerobot_datasets) - len(df)} datasets to analyze")
 
-    existing_repo_ids = df['repo_id'].values
     lerobot_datasets = [repo_id for repo_id in lerobot_datasets if repo_id not in existing_repo_ids]
     # Collect all dataset info
     dataset_infos = []
@@ -86,7 +93,7 @@ if __name__ == "__main__":
     df = pd.concat([df, new_df], ignore_index=True)
 
     # Save to CSV
-    csv_filename = "lerobot_datasets_2.csv"
+    csv_filename = "lerobot_datasets_last.csv"
     df.to_csv(csv_filename, index=False)
 
     # Print summary
