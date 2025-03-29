@@ -67,7 +67,7 @@ import time
 import numpy as np
 import pandas as pd
 import requests
-from flask import Flask, redirect, render_template, request, url_for, session
+from flask import Flask, redirect, render_template, request, url_for, jsonify
 
 from lerobot.common.datasets.lerobot_dataset import LeRobotDataset
 from lerobot.common.datasets.utils import IterableNamespace
@@ -101,7 +101,7 @@ def filtering_metadata(
         (df['is_sim'] == False) &
         (df['robot_type'].isin(robot_set)) &
         (df['fps'].isin(fps)) &
-        (df['total_tasks'] < max_tasks)  &
+        (df['total_tasks'] < max_tasks) &
         (~df['repo_id'].str.contains("test")) &
         (~df['repo_id'].str.contains("eval"))
     ]
@@ -129,7 +129,6 @@ def extract_data_from_current(current_dataset):
         robot_fps[str(robot)] = list([int(el) for el in set(current_dataset[current_dataset['robot_type'] == robot]['fps'].to_list())])
         robot_fps[robot].sort()
     robot_fps = json.dumps(robot_fps)
-    print(f"robot fps {robot_fps}")
     return min_eps, min_frames, robot_types, fps_filter, task_count, current_number_of_datasets, robot_fps
 
 def get_dataset_infos(current_dataset):
@@ -244,22 +243,22 @@ def run_server(
     def submit_form():
         global current_repo_id
         global filtered_data
-        global current_dataset
         if int(request.form['finished']) == 0:
             selected_frames = int(request.form['frames'])
             selected_episodes = int(request.form['episodes'])
             selected_robot_type = request.form.getlist('robot_type')
-            selected_fps = [int(el) for el in request.form.getlist('fps')]
+            selected_fps = [int(float(el)) for el in request.form.getlist('fps')]
             selected_tasks = int(request.form['tasks'])
             global current_dataset
-            try :
+            global full_dataset
+            try:
                 total_datasets, repo_ids, filtered_datasets = filtering_metadata(
-                    current_dataset, 
-                    selected_episodes, 
-                    selected_frames, 
-                    selected_robot_type, 
-                    False, 
-                    selected_fps, 
+                    full_dataset,
+                    selected_episodes,
+                    selected_frames,
+                    selected_robot_type,
+                    False,
+                    selected_fps,
                     selected_tasks
                 )
                 assert total_datasets > 0, "No dataset found with the specified filters"
@@ -267,31 +266,11 @@ def run_server(
                 current_dataset = filtered_datasets
                 current_repo_id = repo_ids
             except Exception as e:
-                min_eps, min_frames, robot_types, fps_filter, task_count, \
-                    current_number_of_datasets, robot_fps = extract_data_from_current(current_dataset)
-                dataset_infos = get_dataset_infos(current_dataset)
-                return  render_template('filter_dataset.html',
-                        min_frames=min_frames,
-                        min_eps=min_eps,
-                        robot_types=robot_types,
-                        fps_options=fps_filter,
-                        task_count=task_count,
-                        number_datasets=current_number_of_datasets,
-                        robot_fps_map=robot_fps,
-                        alert_message=f"No dataset found with the specified filters: {e}",
-                        datasets=dataset_infos)
-            min_eps, min_frames, robot_types, fps_filter, task_count, \
-                current_number_of_datasets, robot_fps = extract_data_from_current(current_dataset)
+                print(f"Error while filtering datasets: {e}")
+                return jsonify({'datasets': [], 'totalDatasets': 0})
+
             dataset_infos = get_dataset_infos(current_dataset)
-            return render_template('filter_dataset.html',
-                                min_frames=min_frames,
-                                min_eps=min_eps,
-                                robot_types=robot_types,
-                                fps_options=fps_filter,
-                                task_count=task_count,
-                                number_datasets=current_number_of_datasets,
-                                robot_fps_map=robot_fps,
-                                datasets=dataset_infos)
+            return jsonify({'datasets': dataset_infos, 'totalDatasets': total_datasets})
         elif int(request.form['finished']) == 1:
             return redirect(url_for('list_datasets'))
 
