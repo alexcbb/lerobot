@@ -62,12 +62,13 @@ import tempfile
 from io import StringIO
 from pathlib import Path
 import os 
+import io
 import time
 
 import numpy as np
 import pandas as pd
 import requests
-from flask import Flask, redirect, render_template, request, url_for, jsonify
+from flask import Flask, redirect, render_template, request, url_for, jsonify, send_file
 
 from lerobot.common.datasets.lerobot_dataset import LeRobotDataset
 from lerobot.common.datasets.utils import IterableNamespace
@@ -137,10 +138,13 @@ def get_dataset_infos(current_dataset):
         repo_id = row['repo_id']
         tasks = current_dataset[current_dataset['repo_id'] == repo_id]['tasks'].to_list()[0]
         tasks = json.loads(tasks)
+        date_elems = current_dataset[current_dataset['repo_id'] == repo_id]["creation_date"].to_list()[0].split(" ")[0].split("-")
+        creation_date = f"{date_elems[2]}/{date_elems[1]}/{date_elems[0]}"
         first_task = list(tasks.values())[0]
         datasets_info.append({
             'name': repo_id,
-            'task_description': first_task if first_task else 'No task description available'
+            'task_description': first_task if first_task else 'No task description available',
+            'creation_date': creation_date
         })
     return datasets_info
 
@@ -162,10 +166,12 @@ def run_server(
         global current_repo_id
         global filtered_data
         global current_dataset
+        global map_repo_id_to_tasks
         full_dataset = pd.DataFrame()
         current_dataset = pd.DataFrame()
         filtered_data = pd.DataFrame()
         current_repo_id = None
+        map_repo_id_to_tasks = {}
         csv_last_modified = os.path.getmtime(csv_file)
         last_modified = time.ctime(csv_last_modified)
         return render_template(
@@ -286,9 +292,12 @@ def run_server(
             tasks = filtered_data[filtered_data['repo_id'] == repo_id]['tasks'].to_list()[0]
             tasks = json.loads(tasks)
             first_task = list(tasks.values())[0]
+            date_elems = current_dataset[current_dataset['repo_id'] == repo_id]["creation_date"].to_list()[0].split(" ")[0].split("-")
+            creation_date = f"{date_elems[2]}/{date_elems[1]}/{date_elems[0]}"
             datasets_info.append({
                 'name': repo_id,
-                'task_description': first_task if first_task else 'No task description available'
+                'task_description': first_task if first_task else 'No task description available',
+                'creation_date': creation_date
             })
         return render_template('list_datasets.html', datasets=datasets_info)
 
@@ -297,6 +306,8 @@ def run_server(
         repo_id = f"{dataset_namespace}/{dataset_name}"
         global current_repo_id
         current_repo_id = repo_id
+        global filtered_data
+        visualized_dataset = filtered_data[filtered_data['repo_id'] == repo_id]
         try:
             dataset = get_dataset_info(repo_id)
         except FileNotFoundError:
@@ -304,19 +315,13 @@ def run_server(
                 "Make sure to convert your LeRobotDataset to v2 & above. See how to convert your dataset at https://github.com/huggingface/lerobot/pull/461",
                 400,
             )
-        dataset_version = dataset.codebase_version
-        match = re.search(r"v(\d+)\.", dataset_version)
-        if match:
-            major_version = int(match.group(1))
-            if major_version < 2:
-                return "Make sure to convert your LeRobotDataset to v2 & above."
 
         episode_data_csv_str, columns, ignored_columns = get_episode_data(dataset, episode_id)
         dataset_info = {
             "repo_id": f"{dataset_namespace}/{dataset_name}",
-            "num_samples":  dataset.total_frames,
-            "num_episodes": dataset.total_episodes,
-            "fps": dataset.fps,
+            "num_samples":  visualized_dataset['total_frames'].to_list()[0],
+            "num_episodes": visualized_dataset['total_episodes'].to_list()[0],
+            "fps": visualized_dataset['fps'].to_list()[0],
         }
         video_keys = [key for key, ft in dataset.features.items() if ft["dtype"] == "video"]
         videos_info = [
@@ -331,25 +336,15 @@ def run_server(
             }
             for video_key in video_keys
         ]
-        response = requests.get(
-            f"https://huggingface.co/datasets/{repo_id}/resolve/main/meta/episodes.jsonl", timeout=5
-        )
-        response.raise_for_status()
-
-        # Split into lines and parse each line as JSON
-        tasks_jsonl = [json.loads(line) for line in response.text.splitlines() if line.strip()]
-
-        filtered_tasks_jsonl = [row for row in tasks_jsonl if row["episode_index"] == episode_id]
-        tasks = filtered_tasks_jsonl[0]["tasks"]
-
-        videos_info[0]["language_instruction"] = tasks
+        tasks = json.loads(visualized_dataset['tasks'].tolist()[0])
+        tasks = list(tasks.values())[0]
+        videos_info[0]["language_instruction"] = [tasks]
 
         if episodes is None:
             episodes = list(
                 range(dataset.total_episodes)
             )
         global current_dataset
-        global filtered_data
         remaining_data = len(filtered_data)
         return render_template(
             "manual_filter_dataset.html",
@@ -364,16 +359,33 @@ def run_server(
             number_remain_datasets=remaining_data,
         )
 
-    # TODO : change task description
     @app.route("/change_desc", methods=['POST'])
     def change_desc():
         global current_repo_id
         global filtered_data
         global current_dataset
+        global map_repo_id_to_tasks
         repo_id = current_repo_id
+        validate = request.form.get('btnValidate')
         tasks = request.form.get('task_description')
-        filtered_data.loc[filtered_data['repo_id'] == repo_id, 'tasks'] = json.dumps(tasks)
-        current_dataset.loc[current_dataset['repo_id'] == repo_id, 'tasks'] = json.dumps(tasks)
+        map_repo_id_to_tasks[repo_id] = tasks
+        tasks = '{"0": "' + tasks + '" }'
+        filtered_data.loc[filtered_data['repo_id'] == repo_id, 'tasks'] = tasks
+        current_dataset.loc[current_dataset['repo_id'] == repo_id, 'tasks'] = tasks
+        if validate:
+            filtered_data = filtered_data[filtered_data['repo_id'] != repo_id]
+            if len(filtered_data) > 0:
+                next_dataset = filtered_data.iloc[0]
+                dataset_namespace = next_dataset['repo_id'].split("/")[0]
+                dataset_name = next_dataset['repo_id'].split("/")[1]
+                return redirect(
+                    url_for(
+                        "show_episode",
+                        dataset_namespace=dataset_namespace,
+                        dataset_name=dataset_name,
+                        episode_id=0,
+                    )
+                )
         return redirect(url_for('list_datasets'))
 
     @app.route("/filter", methods=['POST'])
@@ -412,18 +424,33 @@ def run_server(
     def final_filtering():
         global current_dataset
         all_repo_ids = current_dataset['repo_id'].to_list()
+        global map_repo_id_to_tasks
+        """with open('tasks_mapping.json', 'w') as f:
+            json.dump(map_repo_id_to_tasks, f)"""
         return render_template(
             'final_filtering.html', 
             number_datasets=len(current_dataset),
-            repo_ids=all_repo_ids)
+            repo_ids=all_repo_ids,
+            tasks_mapping=map_repo_id_to_tasks)
+    
+
+    @app.route('/download_json', methods=['POST'])
+    def download_json():
+        map_to_id = request.form.get('map_to_id')
+        if map_to_id:
+            # Convert the string back to a dictionary
+            map_to_id_dict = json.loads(map_to_id)
+
+            # Create a JSON file in memory
+            json_file = io.BytesIO()
+            json_file.write(json.dumps(map_to_id_dict, indent=4).encode('utf-8'))
+            json_file.seek(0)
+
+            # Send the file as a downloadable attachment
+            return send_file(json_file, mimetype='application/json', as_attachment=True, download_name='map_to_id.json')
+        return jsonify({"error": "No data provided"}), 400
         
     app.run(host=host, port=port, debug=True)
-
-
-def get_ep_csv_fname(episode_id: int):
-    ep_csv_fname = f"episode_{episode_id}.csv"
-    return ep_csv_fname
-
 
 def get_episode_data(dataset: LeRobotDataset | IterableNamespace, episode_index):
     """Get a csv str containing timeseries data of an episode (e.g. state and action).
@@ -488,30 +515,6 @@ def get_episode_data(dataset: LeRobotDataset | IterableNamespace, episode_index)
     csv_string = csv_buffer.getvalue()
 
     return csv_string, columns, ignored_columns
-
-
-def get_episode_video_paths(dataset: LeRobotDataset, ep_index: int) -> list[str]:
-    # get first frame of episode (hack to get video_path of the episode)
-    first_frame_idx = dataset.episode_data_index["from"][ep_index].item()
-    return [
-        dataset.hf_dataset.select_columns(key)[first_frame_idx][key]["path"]
-        for key in dataset.meta.video_keys
-    ]
-
-
-def get_episode_language_instruction(dataset: LeRobotDataset, ep_index: int) -> list[str]:
-    # check if the dataset has language instructions
-    if "language_instruction" not in dataset.features:
-        return None
-
-    # get first frame index
-    first_frame_idx = dataset.episode_data_index["from"][ep_index].item()
-
-    language_instruction = dataset.hf_dataset[first_frame_idx]["language_instruction"]
-    # TODO (michel-aractingi) hack to get the sentence, some strings in openx are badly stored
-    # with the tf.tensor appearing in the string
-    return language_instruction.removeprefix("tf.Tensor(b'").removesuffix("', shape=(), dtype=string)")
-
 
 def get_dataset_info(repo_id: str) -> IterableNamespace:
     response = requests.get(
