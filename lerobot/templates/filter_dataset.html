@@ -60,7 +60,8 @@
                 div.className = 'bg-white p-4 rounded shadow text-gray-900';
                 div.innerHTML = `
                     <h2 class="text-xl font-semibold">${dataset.name}</h2>
-                    <p class="text-gray-600">"${dataset.task_description}"</p>
+                    <p class="font-semibold text-gray-600">Date : ${dataset.creation_date}</p>
+                    <p class="text-gray-500">"${dataset.task_description}"</p>
                 `;
                 datasetContainer.appendChild(div);
             });
@@ -171,7 +172,8 @@
                 {% for dataset in datasets %}
                     <div class="bg-white p-4 rounded shadow text-gray-900">
                         <h2 class="text-xl font-semibold">{{ dataset.name }}</h2>
-                        <p class="text-gray-600">"{{ dataset.task_description }}"</p>
+                        <p class="font-semibold text-gray-600">Date : {{ dataset.creation_date }}</p>
+                        <p class="text-gray-500">"{{ dataset.task_description }}"</p>
                     </div>
                 {% endfor %}
             </div>

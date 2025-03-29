@@ -34,6 +34,12 @@ filtered_datasets = MultiLeRobotDataset([
                 Copy
             </button>
         </div>
+        <form id="downloadForm" action="/download_json" method="POST" style="display:none;">
+            <input type="hidden" name="map_to_id" id="mapToIdInput" value='{{ tasks_mapping|tojson }}'>
+        </form>
+        <button onclick="downloadJson()" class="px-8 py-4 bg-green-600 text-white font-semibold rounded-lg shadow-md hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-opacity-75">
+            Download JSON of annotated tasks
+        </button>
     </div>
 
     <script>
@@ -52,6 +58,10 @@ filtered_datasets = MultiLeRobotDataset([
             }
 
             window.getSelection().removeAllRanges();
+        }
+
+        function downloadJson() {
+            document.getElementById('downloadForm').submit();
         }
     </script>
 </body>
