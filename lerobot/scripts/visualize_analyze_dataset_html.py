@@ -200,17 +200,28 @@ def run_server(
                 return redirect(url_for('homepage'))
 
             # empty tasks column so that list_datasets.html can display them, we don't have access now
+            keys = ['repo_id', 'tasks', 'creation_date', 'total_frames', 'total_episodes', 'fps', 'robot_type', 'has_video', 'is_sim', 'total_tasks']
             df = pd.DataFrame({'repo_id': dataset_list,
-                            'tasks': [json.dumps({'0':'N/A'})]*len(dataset_list), 'creation_date': ['N/A']*len(dataset_list)})
+                            'tasks': [json.dumps({'0':'N/A'})]*len(dataset_list), 
+                            'creation_date': ['N/A']*len(dataset_list), 
+                            'total_frames': [0]*len(dataset_list),
+                            'total_episodes': [0]*len(dataset_list),
+                            'fps': [0]*len(dataset_list),
+                            'robot_type': ['N/A']*len(dataset_list),
+                            'has_video': [False]*len(dataset_list),
+                            'is_sim': [False]*len(dataset_list),
+                            'total_tasks': [0]*len(dataset_list)
+                            })
             
             # to update for csv file
             file = csv_file
             if file:
                 csv_df = pd.read_csv(file)
                 # Check for tasks
-                merged_df = df.merge(csv_df[['repo_id', 'tasks', 'creation_date']], on='repo_id', how='left')
-                df['tasks'] = merged_df['tasks_y']
-                df['creation_date'] = merged_df['creation_date_y']
+                merged_df = df.merge(csv_df[keys], on='repo_id', how='left')
+                for key in keys:
+                    if key is not 'repo_id':
+                        df[key] = merged_df[key+'_y']
             full_dataset = df
             current_dataset = df
             filtered_data = df

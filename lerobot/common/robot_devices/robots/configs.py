@@ -477,13 +477,13 @@ class So100RobotConfig(ManipulatorRobotConfig):
     cameras: dict[str, CameraConfig] = field(
         default_factory=lambda: {
             "realsense_top": OpenCVCameraConfig(
-                camera_index=8,
+                camera_index=14,
                 fps=30,
                 width=640,
                 height=480,
             ),
             "realsense_side": OpenCVCameraConfig(
-                camera_index=14,
+                camera_index=8,
                 fps=30,
                 width=640,
                 height=480,
