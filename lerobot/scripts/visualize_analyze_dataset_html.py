@@ -190,7 +190,6 @@ def run_server(
             if not pasted_text:
                 print("No pasted dataset list provided.")
                 return redirect(url_for('homepage'))
-
             import ast
             try:
                 dataset_list = ast.literal_eval(pasted_text)
@@ -202,19 +201,19 @@ def run_server(
 
             # empty tasks column so that list_datasets.html can display them, we don't have access now
             df = pd.DataFrame({'repo_id': dataset_list,
-                            'tasks': [json.dumps({'0':'N/A'})]*len(dataset_list)})
+                            'tasks': [json.dumps({'0':'N/A'})]*len(dataset_list), 'creation_date': ['N/A']*len(dataset_list)})
             
             # to update for csv file
             file = csv_file
             if file:
                 csv_df = pd.read_csv(file)
                 # Check for tasks
-                merged_df = df.merge(csv_df[['repo_id', 'tasks']], on='repo_id', how='left')
+                merged_df = df.merge(csv_df[['repo_id', 'tasks', 'creation_date']], on='repo_id', how='left')
                 df['tasks'] = merged_df['tasks_y']
+                df['creation_date'] = merged_df['creation_date_y']
             full_dataset = df
             current_dataset = df
             filtered_data = df
-
             # go to filter page with the new list of datasets
             return redirect(url_for('list_datasets'))
         else:
