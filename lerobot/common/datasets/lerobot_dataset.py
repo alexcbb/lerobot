@@ -964,6 +964,35 @@ class LeRobotDataset(torch.utils.data.Dataset):
         for ep_idx in range(self.meta.total_episodes):
             self.encode_episode_videos(ep_idx)
 
+    def save_modified_dataset(self):
+        """
+        Save the modified hf_dataset back to disk.
+        This method should be called after making modifications like adding annotations.
+        """
+        # Group by episode_index
+        episode_indices = set(torch.stack(self.hf_dataset["episode_index"]).numpy())
+        
+        for ep_idx in episode_indices:
+            # Filter dataset for the current episode
+            def filter_func(example):
+                return example["episode_index"] == ep_idx
+            
+            ep_dataset = self.hf_dataset.filter(filter_func)
+            
+            # Convert to format expected by to_parquet
+            ep_dataset.set_format(None)  # Reset format if any was set
+            
+            # Get the path for this episode's parquet file
+            ep_data_path = self.root / self.meta.get_data_file_path(ep_index=ep_idx)
+            ep_data_path.parent.mkdir(parents=True, exist_ok=True)
+            
+            # Save to parquet
+            print(f"Saving modified data for episode {ep_idx} to {ep_data_path}")
+            ep_dataset.to_parquet(ep_data_path)
+        
+        # Save updated metadata
+        write_info(self.meta.info, self.meta.root)
+
     def encode_episode_videos(self, episode_index: int) -> dict:
         """
         Use ffmpeg to convert frames stored as png into mp4 videos.

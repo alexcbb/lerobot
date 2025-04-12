@@ -494,7 +494,8 @@ class ACT(nn.Module):
             )
         # Grid position token.
         if self.config.use_grid:
-            grid_encoder = self.grid_encoding(batch["grid_position"])
+            grid_position = batch["grid_position"].to(torch.float32)
+            grid_encoder = self.grid_encoding(grid_position)
             encoder_in_tokens.append(grid_encoder)
 
         # Camera observation features and positional embeddings.
