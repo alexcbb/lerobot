@@ -304,6 +304,15 @@ class ACT(nn.Module):
         # The cls token forms parameters of the latent's distribution (like this [*means, *log_variances]).
         super().__init__()
         self.config = config
+        self.use_grid = config.use_grid
+
+        if self.use_grid:
+            # embed grid position
+            self.grid_encoding = nn.Sequential(
+                nn.Linear(2, config.dim_model*2),
+                nn.ReLU(),
+                nn.Linear(config.dim_model*2, config.dim_model)
+            )
 
         if self.config.use_vae:
             self.vae_encoder = ACTEncoder(config, is_vae_encoder=True)
@@ -366,6 +375,8 @@ class ACT(nn.Module):
         if self.config.robot_state_feature:
             n_1d_tokens += 1
         if self.config.env_state_feature:
+            n_1d_tokens += 1
+        if self.config.use_grid:
             n_1d_tokens += 1
         self.encoder_1d_feature_pos_embed = nn.Embedding(n_1d_tokens, config.dim_model)
         if self.config.image_features:
@@ -469,6 +480,7 @@ class ACT(nn.Module):
                 batch["observation.state"].device
             )
 
+
         # Prepare transformer encoder inputs.
         encoder_in_tokens = [self.encoder_latent_input_proj(latent_sample)]
         encoder_in_pos_embed = list(self.encoder_1d_feature_pos_embed.weight.unsqueeze(1))
@@ -480,6 +492,10 @@ class ACT(nn.Module):
             encoder_in_tokens.append(
                 self.encoder_env_state_input_proj(batch["observation.environment_state"])
             )
+        # Grid position token.
+        if self.config.use_grid:
+            grid_encoder = self.grid_encoding(batch["grid_position"])
+            encoder_in_tokens.append(grid_encoder)
 
         # Camera observation features and positional embeddings.
         if self.config.image_features:
