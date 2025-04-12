@@ -767,6 +767,7 @@ class LeRobotDataset(torch.utils.data.Dataset):
         # size and task are special cases that are not in self.features
         ep_buffer["size"] = 0
         ep_buffer["task"] = []
+        ep_buffer["grid_position"] = []
         for key in self.features:
             ep_buffer[key] = current_ep_idx if key == "episode_index" else []
         return ep_buffer
@@ -795,7 +796,6 @@ class LeRobotDataset(torch.utils.data.Dataset):
         for name in frame:
             if isinstance(frame[name], torch.Tensor):
                 frame[name] = frame[name].numpy()
-
         validate_frame(frame, self.features)
 
         if self.episode_buffer is None:
@@ -813,6 +813,8 @@ class LeRobotDataset(torch.utils.data.Dataset):
                 # Note: we associate the task in natural language to its task index during `save_episode`
                 self.episode_buffer["task"].append(frame["task"])
                 continue
+            elif key == "grid_position":
+               self.episode_buffer["grid_position"].append(frame["grid_position"])
 
             if key not in self.features:
                 raise ValueError(

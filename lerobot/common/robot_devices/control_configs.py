@@ -49,10 +49,10 @@ class TeleoperateControlConfig(ControlConfig):
 class RecordControlConfig(ControlConfig):
     # Dataset identifier. By convention it should match '{hf_username}/{dataset_name}' (e.g. `lerobot/test`).
     repo_id: str
-    collect_grid: bool = True
     # A short but accurate description of the task performed during the recording (e.g. "Pick the Lego block and drop it in the box on the right.")
     single_task: str
     # Root directory where the dataset will be stored (e.g. 'dataset/path').
+    collect_grid: bool = True
     root: str | Path | None = None
     policy: PreTrainedConfig | None = None
     # Limit the frames per second. By default, uses the policy fps.

@@ -273,6 +273,7 @@ def record(
             image_writer_processes=cfg.num_image_writer_processes,
             image_writer_threads=cfg.num_image_writer_threads_per_camera * len(robot.cameras),
         )
+        print(f"features = {dataset.features}")
 
     # Load pretrained policy
     policy = None if cfg.policy is None else make_policy(cfg.policy, ds_meta=dataset.meta)
@@ -295,7 +296,7 @@ def record(
 
     if cfg.collect_grid: 
         total_eps_to_collect = NUM_COLS * NUM_ROWS * 4 
-        assert total_eps_to_collect <= vars, (
+        assert total_eps_to_collect <= cfg.num_episodes, (
             f"total_episodes should be at least {total_eps_to_collect} (4 demos per square at least) when collect_grid is True, but got {cfg.num_episodes}."
         )
 

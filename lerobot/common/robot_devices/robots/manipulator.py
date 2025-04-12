@@ -200,8 +200,18 @@ class ManipulatorRobot:
         }
 
     @property
+    def grid_features(self) -> dict:
+        return {
+            "grid_position": {
+                "dtype": "float32",
+                "shape": (2,),
+                "names": ["x", "y"],
+            }
+        }
+
+    @property
     def features(self):
-        return {**self.motor_features, **self.camera_features}
+        return {**self.motor_features, **self.camera_features, **self.grid_features}
 
     @property
     def has_camera(self):
