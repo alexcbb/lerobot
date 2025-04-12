@@ -177,7 +177,7 @@ import torch
 ########################################################################################
 
 NUM_COLS = 8
-NUM_ROWS = 3
+NUM_ROWS = 1
 
 @safe_disconnect
 def calibrate(robot: Robot, cfg: CalibrateControlConfig):
@@ -273,7 +273,6 @@ def record(
             image_writer_processes=cfg.num_image_writer_processes,
             image_writer_threads=cfg.num_image_writer_threads_per_camera * len(robot.cameras),
         )
-        print(f"features = {dataset.features}")
 
     # Load pretrained policy
     policy = None if cfg.policy is None else make_policy(cfg.policy, ds_meta=dataset.meta)
@@ -294,11 +293,11 @@ def record(
     if has_method(robot, "teleop_safety_stop"):
         robot.teleop_safety_stop()
 
-    if cfg.collect_grid: 
-        total_eps_to_collect = NUM_COLS * NUM_ROWS * 4 
-        assert total_eps_to_collect <= cfg.num_episodes, (
-            f"total_episodes should be at least {total_eps_to_collect} (4 demos per square at least) when collect_grid is True, but got {cfg.num_episodes}."
-        )
+    # if cfg.collect_grid: 
+    #     total_eps_to_collect = NUM_COLS * NUM_ROWS * 4 
+    #     assert total_eps_to_collect <= cfg.num_episodes, (
+    #         f"total_episodes should be at least {total_eps_to_collect} (4 demos per square at least) when collect_grid is True, but got {cfg.num_episodes}."
+    #     )
 
     recorded_episodes = 0
     while True:
@@ -307,7 +306,7 @@ def record(
         
         current_grid = None
         if cfg.collect_grid:
-            current_row = recorded_episodes // NUM_COLS
+            current_row = 1 # recorded_episodes // NUM_COLS 
             current_col = recorded_episodes % NUM_COLS
             current_grid = torch.tensor([current_row, current_col])
 

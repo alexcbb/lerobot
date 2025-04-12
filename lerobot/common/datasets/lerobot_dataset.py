@@ -813,8 +813,6 @@ class LeRobotDataset(torch.utils.data.Dataset):
                 # Note: we associate the task in natural language to its task index during `save_episode`
                 self.episode_buffer["task"].append(frame["task"])
                 continue
-            elif key == "grid_position":
-               self.episode_buffer["grid_position"].append(frame["grid_position"])
 
             if key not in self.features:
                 raise ValueError(
