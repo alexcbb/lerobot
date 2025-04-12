@@ -294,7 +294,7 @@ def record(
         robot.teleop_safety_stop()
 
     if cfg.collect_grid: 
-        total_eps_to_collect = NUM_COLS * NUM_ROWS * 4 
+        total_eps_to_collect = NUM_COLS * NUM_ROWS * 2
         assert total_eps_to_collect <= cfg.num_episodes, (
             f"total_episodes should be at least {total_eps_to_collect} (4 demos per square at least) when collect_grid is True, but got {cfg.num_episodes}."
         )
