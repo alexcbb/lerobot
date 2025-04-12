@@ -170,11 +170,14 @@ from lerobot.common.robot_devices.robots.utils import Robot, make_robot_from_con
 from lerobot.common.robot_devices.utils import busy_wait, safe_disconnect
 from lerobot.common.utils.utils import has_method, init_logging, log_say
 from lerobot.configs import parser
+import torch
 
 ########################################################################################
 # Control modes
 ########################################################################################
 
+NUM_COLS = 8
+NUM_ROWS = 3
 
 @safe_disconnect
 def calibrate(robot: Robot, cfg: CalibrateControlConfig):
@@ -290,10 +293,22 @@ def record(
     if has_method(robot, "teleop_safety_stop"):
         robot.teleop_safety_stop()
 
+    if cfg.collect_grid: 
+        total_eps_to_collect = NUM_COLS * NUM_ROWS * 4 
+        assert total_eps_to_collect <= vars, (
+            f"total_episodes should be at least {total_eps_to_collect} (4 demos per square at least) when collect_grid is True, but got {cfg.num_episodes}."
+        )
+
     recorded_episodes = 0
     while True:
         if recorded_episodes >= cfg.num_episodes:
             break
+        
+        current_grid = None
+        if cfg.collect_grid:
+            current_row = recorded_episodes // NUM_COLS
+            current_col = recorded_episodes % NUM_COLS
+            current_grid = torch.tensor([current_row, current_col])
 
         log_say(f"Recording episode {dataset.num_episodes}", cfg.play_sounds)
         record_episode(
@@ -305,6 +320,8 @@ def record(
             policy=policy,
             fps=cfg.fps,
             single_task=cfg.single_task,
+            collect_grid=cfg.collect_grid,
+            current_grid=current_grid,
         )
 
         # Execute a few seconds without recording to give time to manually reset the environment
