@@ -177,7 +177,7 @@ import torch
 ########################################################################################
 
 NUM_COLS = 8
-NUM_ROWS = 1
+NUM_ROWS = 3
 
 @safe_disconnect
 def calibrate(robot: Robot, cfg: CalibrateControlConfig):
@@ -293,11 +293,11 @@ def record(
     if has_method(robot, "teleop_safety_stop"):
         robot.teleop_safety_stop()
 
-    # if cfg.collect_grid: 
-    #     total_eps_to_collect = NUM_COLS * NUM_ROWS * 4 
-    #     assert total_eps_to_collect <= cfg.num_episodes, (
-    #         f"total_episodes should be at least {total_eps_to_collect} (4 demos per square at least) when collect_grid is True, but got {cfg.num_episodes}."
-    #     )
+    if cfg.collect_grid: 
+        total_eps_to_collect = NUM_COLS * NUM_ROWS * 4 
+        assert total_eps_to_collect <= cfg.num_episodes, (
+            f"total_episodes should be at least {total_eps_to_collect} (4 demos per square at least) when collect_grid is True, but got {cfg.num_episodes}."
+        )
 
     recorded_episodes = 0
     while True:
@@ -306,10 +306,9 @@ def record(
         
         current_grid = None
         if cfg.collect_grid:
-            current_row = 1 # recorded_episodes // NUM_COLS 
+            current_row = (recorded_episodes // NUM_COLS) % NUM_ROWS
             current_col = recorded_episodes % NUM_COLS
             current_grid = torch.tensor([current_row, current_col])
-
         log_say(f"Recording episode {dataset.num_episodes}", cfg.play_sounds)
         record_episode(
             robot=robot,
