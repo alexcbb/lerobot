@@ -404,7 +404,7 @@ class ACT(nn.Module):
             n_1d_tokens += 1
         self.encoder_1d_feature_pos_embed = nn.Embedding(n_1d_tokens, config.dim_model)
         if self.config.image_features:
-            if "videosaur" or "theia" in config.vision_backbone or config.global_pooling:
+            if "videosaur" in config.vision_backbone:
                 self.encoder_cam_feat_pos_embed = ACTSinusoidalPositionEmbedding1d(config.dim_model)
             else:
                 self.encoder_cam_feat_pos_embed = ACTSinusoidalPositionEmbedding2d(config.dim_model // 2)
