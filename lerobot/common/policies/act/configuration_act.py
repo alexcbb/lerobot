@@ -137,6 +137,27 @@ class ACTConfig(PreTrainedConfig):
     optimizer_lr: float = 1e-5
     optimizer_weight_decay: float = 1e-4
     optimizer_lr_backbone: float = 1e-5
+    pretrained_path: str | None = None
+
+    videosaur: dict = field(
+        default_factory=lambda: {
+            "resolution": [224, 224],
+            "encoder_type": "vit_small_patch16_224_dino",
+            "feature_key": "vit_block12",
+            "target_key": "vit_block_keys12",
+            "num_slots": 10,
+            "slot_size": 128,
+            "slot_hidden_size": 128,
+            "alloc_layers": 3,
+            "alloc_heads": 4,
+            "num_channels": 3,
+            "patch_size": 16,
+            "use_mse": True,
+            "sim_temp": 0.075,
+            "use_entropy_regularization": False,
+            "ckpt_path": "/home/liris/achapin/lerobot_jds/videosaur_s16_s10_dbf_global_step=240000.0.ckpt" 
+        }
+    )
 
     def __post_init__(self):
         super().__post_init__()

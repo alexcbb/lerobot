@@ -55,6 +55,9 @@ class RecordControlConfig(ControlConfig):
     collect_grid: bool = True
     root: str | Path | None = None
     policy: PreTrainedConfig | None = None
+    pretrained_path: str | None = None
+    row: int | None = None
+    col: int | None = None
     # Limit the frames per second. By default, uses the policy fps.
     fps: int | None = None
     # Number of seconds before starting data collection. It allows the robot devices to warmup and synchronize.

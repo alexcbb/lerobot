@@ -34,6 +34,7 @@ from torchvision.models._utils import IntermediateLayerGetter
 from torchvision.ops.misc import FrozenBatchNorm2d
 
 from lerobot.common.policies.act.configuration_act import ACTConfig
+from lerobot.common.policies.act.videosaur import VIDEOSAUR
 from lerobot.common.policies.normalize import Normalize, Unnormalize
 from lerobot.common.policies.pretrained import PreTrainedPolicy
 
@@ -341,15 +342,27 @@ class ACT(nn.Module):
 
         # Backbone for image feature extraction.
         if self.config.image_features:
-            backbone_model = getattr(torchvision.models, config.vision_backbone)(
-                replace_stride_with_dilation=[False, False, config.replace_final_stride_with_dilation],
-                weights=config.pretrained_backbone_weights,
-                norm_layer=FrozenBatchNorm2d,
-            )
-            # Note: The assumption here is that we are using a ResNet model (and hence layer4 is the final
-            # feature map).
-            # Note: The forward method of this returns a dict: {"feature_map": output}.
-            self.backbone = IntermediateLayerGetter(backbone_model, return_layers={"layer4": "feature_map"})
+            if "resnet" in config.vision_backbone:
+                backbone_model = getattr(torchvision.models, config.vision_backbone)(
+                    replace_stride_with_dilation=[False, False, config.replace_final_stride_with_dilation],
+                    weights=config.pretrained_backbone_weights,
+                    norm_layer=FrozenBatchNorm2d,
+                )
+                # Note: The assumption here is that we are using a ResNet model (and hence layer4 is the final
+                # feature map).
+                # Note: The forward method of this returns a dict: {"feature_map": output}.
+                self.backbone = IntermediateLayerGetter(backbone_model, return_layers={"layer4": "feature_map"})
+            elif "videosaur" in config.vision_backbone:
+                backbone_name = config.vision_backbone
+                assert config.videosaur["ckpt_path"] is not None, "Please provide a path to the VIDEOSAUR checkpoint"
+                # TODO fix this with right model
+                config.videosaur["ckpt_path"] = "/home/achapin/Documents/ACT_exp/videosaur_s16_s10_dbf_global_step=240000.0.ckpt"
+                self.backbone = VIDEOSAUR(
+                    **config.videosaur
+                )
+                for param in self.backbone.parameters():
+                    param.requires_grad = False
+                self.backbone.eval()
 
         # Transformer (acts as VAE decoder when training with the variational objective).
         self.encoder = ACTEncoder(config)
@@ -367,9 +380,24 @@ class ACT(nn.Module):
             )
         self.encoder_latent_input_proj = nn.Linear(config.latent_dim, config.dim_model)
         if self.config.image_features:
-            self.encoder_img_feat_input_proj = nn.Conv2d(
-                backbone_model.fc.in_features, config.dim_model, kernel_size=1
-            )
+            if "videosaur" or "theia" in config.vision_backbone or config.global_pooling:
+                # Define projection layer for image features.
+                device_backbone = next(self.backbone.parameters()).device
+                dummy_input = torch.randn(1, 1, 3, 224, 224).to(device_backbone)
+                with torch.no_grad():
+                    out = self.backbone(dummy_input)["feature_map"]
+                self.encoder_img_feat_input_proj = nn.Linear(
+                    out.shape[-1], config.dim_model
+                )
+            elif "resnet" not in config.vision_backbone:
+                # Define projection layer for image features.
+                device_backbone = next(self.backbone.parameters()).device
+                dummy_input = torch.randn(1, 3, 224, 224).to(device_backbone)
+                with torch.no_grad():
+                    out = self.backbone(dummy_input)["feature_map"]
+                self.encoder_img_feat_input_proj = nn.Conv2d(
+                    out.shape[1], config.dim_model, kernel_size=1
+                )
         # Transformer encoder positional embeddings.
         n_1d_tokens = 1  # for the latent
         if self.config.robot_state_feature:
@@ -380,7 +408,10 @@ class ACT(nn.Module):
             n_1d_tokens += 1
         self.encoder_1d_feature_pos_embed = nn.Embedding(n_1d_tokens, config.dim_model)
         if self.config.image_features:
-            self.encoder_cam_feat_pos_embed = ACTSinusoidalPositionEmbedding2d(config.dim_model // 2)
+            if "videosaur" or "theia" in config.vision_backbone or config.global_pooling:
+                self.encoder_cam_feat_pos_embed = ACTSinusoidalPositionEmbedding1d(config.dim_model)
+            else:
+                self.encoder_cam_feat_pos_embed = ACTSinusoidalPositionEmbedding2d(config.dim_model // 2)
 
         # Transformer decoder.
         # Learnable positional embedding for the transformer's decoder (in the style of DETR object queries).
@@ -505,13 +536,25 @@ class ACT(nn.Module):
 
             # For a list of images, the H and W may vary but H*W is constant.
             for img in batch["observation.images"]:
-                cam_features = self.backbone(img)["feature_map"]
-                cam_pos_embed = self.encoder_cam_feat_pos_embed(cam_features).to(dtype=cam_features.dtype)
-                cam_features = self.encoder_img_feat_input_proj(cam_features)
+                if "videosaur" in self.config.vision_backbone:
+                    img = img.unsqueeze(1) # [B, 1, C, H, W]
+                    with torch.no_grad():
+                        cam_features = self.backbone(img, train=False)["slots"] # [B, N, D]
+                    cam_pos_embed = self.encoder_cam_feat_pos_embed(cam_features.permute(0, 2, 1)).to(dtype=cam_features.dtype)
+                    cam_features = self.encoder_img_feat_input_proj(cam_features)
 
-                # Rearrange features to (sequence, batch, dim).
-                cam_features = einops.rearrange(cam_features, "b c h w -> (h w) b c")
-                cam_pos_embed = einops.rearrange(cam_pos_embed, "b c h w -> (h w) b c")
+                    # Rearrange features to (sequence, batch, dim).
+                    cam_features = einops.rearrange(cam_features, "b n d -> n b d")
+                    cam_pos_embed = einops.rearrange(cam_pos_embed, "b d n -> n b d")
+                # Global models : extract feature maps or global vector
+                else:
+                    cam_features = self.backbone(img)["feature_map"]
+                    cam_pos_embed = self.encoder_cam_feat_pos_embed(cam_features).to(dtype=cam_features.dtype)
+                    cam_features = self.encoder_img_feat_input_proj(cam_features)
+
+                    # Rearrange features to (sequence, batch, dim).
+                    cam_features = einops.rearrange(cam_features, "b c h w -> (h w) b c")
+                    cam_pos_embed = einops.rearrange(cam_pos_embed, "b c h w -> (h w) b c")
 
                 all_cam_features.append(cam_features)
                 all_cam_pos_embeds.append(cam_pos_embed)
@@ -715,6 +758,45 @@ def create_sinusoidal_pos_embedding(num_positions: int, dimension: int) -> Tenso
     sinusoid_table[:, 0::2] = np.sin(sinusoid_table[:, 0::2])  # dim 2i
     sinusoid_table[:, 1::2] = np.cos(sinusoid_table[:, 1::2])  # dim 2i+1
     return torch.from_numpy(sinusoid_table).float()
+
+class ACTSinusoidalPositionEmbedding1d(nn.Module):
+    """1D sinusoidal positional embeddings.
+    """
+
+    def __init__(self, dimension: int):
+        """
+        Args:
+            dimension: The desired dimension of the embeddings.
+        """
+        super().__init__()
+        self.dimension = dimension
+        self._two_pi = 2 * math.pi
+        self._eps = 1e-6
+        # Inverse "common ratio" for the geometric progression in sinusoid frequencies.
+        self._temperature = 10000
+
+    def forward(self, x: Tensor) -> Tensor:
+        """
+        Args:
+            x: A (B, C, L) batch of 1D feature map to generate the embeddings for.
+        Returns:
+            A (1, C, L) batch of corresponding sinusoidal positional embeddings.
+        """
+        not_mask = torch.ones_like(x[0, :1])  # (1, L)
+        l_range = not_mask.cumsum(1, dtype=torch.float32)
+
+        l_range = l_range / (l_range[:, -1:] + self._eps) * self._two_pi
+
+        inverse_frequency = self._temperature ** (
+            2 * (torch.arange(self.dimension, dtype=torch.float32, device=x.device) // 2) / self.dimension
+        )
+        l_range = l_range.unsqueeze(-1) / inverse_frequency  # (1, L, 1)
+
+        # pos_embed_l is (1, L, C // 2).
+        pos_embed_l = torch.stack((l_range[..., 0::2].sin(), l_range[..., 1::2].cos()), dim=-1).flatten(2)
+        pos_embed = pos_embed_l.permute(0, 2, 1)  # (1, C, L)
+
+        return pos_embed
 
 
 class ACTSinusoidalPositionEmbedding2d(nn.Module):
