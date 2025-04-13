@@ -380,7 +380,7 @@ class ACT(nn.Module):
             )
         self.encoder_latent_input_proj = nn.Linear(config.latent_dim, config.dim_model)
         if self.config.image_features:
-            if "videosaur" or "theia" in config.vision_backbone or config.global_pooling:
+            if "videosaur" in config.vision_backbone:
                 # Define projection layer for image features.
                 device_backbone = next(self.backbone.parameters()).device
                 dummy_input = torch.randn(1, 1, 3, 224, 224).to(device_backbone)
@@ -389,15 +389,11 @@ class ACT(nn.Module):
                 self.encoder_img_feat_input_proj = nn.Linear(
                     out.shape[-1], config.dim_model
                 )
-            elif "resnet" not in config.vision_backbone:
-                # Define projection layer for image features.
-                device_backbone = next(self.backbone.parameters()).device
-                dummy_input = torch.randn(1, 3, 224, 224).to(device_backbone)
-                with torch.no_grad():
-                    out = self.backbone(dummy_input)["feature_map"]
+            elif "resnet" in config.vision_backbone:
                 self.encoder_img_feat_input_proj = nn.Conv2d(
-                    out.shape[1], config.dim_model, kernel_size=1
+                    backbone_model.fc.in_features, config.dim_model, kernel_size=1
                 )
+
         # Transformer encoder positional embeddings.
         n_1d_tokens = 1  # for the latent
         if self.config.robot_state_feature:
