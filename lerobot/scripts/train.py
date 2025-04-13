@@ -137,18 +137,19 @@ def train(cfg: TrainPipelineConfig):
         eval_env = make_env(cfg.env, n_envs=cfg.eval.batch_size, use_async_envs=cfg.eval.use_async_envs)
 
     if isinstance(dataset, MultiLeRobotDataset):
-        ds_meta = {}
+        
+        """ds_meta = {}
         for dataset in dataset._datasets:
-            current_stats = dataset.meta.stats
+            current_stats = dataset.smeta.stats
             for k, v in current_stats.items():
                 if k not in ds_meta:
                     ds_meta[k] = v
                 else:
-                    ds_meta[k]["min"] = min(ds_meta[k]["min"], v["min"])
-                    ds_meta[k]["max"] = max(ds_meta[k]["max"], v["max"])
-                    ds_meta[k]["mean"] = (ds_meta[k]["mean"] + v["mean"]) / 2
-                    ds_meta[k]["std"] = max(ds_meta[k]["std"], v["std"])
-        # ds_meta = dataset._datasets[0].meta
+                    ds_meta[k]["min"] = np.array(min(ds_meta[k]["min"], v["min"].item()))
+                    ds_meta[k]["max"] = np.array(max(ds_meta[k]["max"], v["max"].item()))
+                    ds_meta[k]["mean"] = np.array((ds_meta[k]["mean"] + v["mean"].item()) / 2)
+                    ds_meta[k]["std"] = np.array(max(ds_meta[k]["std"].item(), v["std"].item()))"""
+        ds_meta = dataset._datasets[0].meta
     else:
         ds_meta = dataset.meta
 
