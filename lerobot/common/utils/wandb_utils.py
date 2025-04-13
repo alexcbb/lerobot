@@ -33,6 +33,8 @@ def cfg_to_group(cfg: TrainPipelineConfig, return_list: bool = False) -> list[st
     if dataset_tag.startswith('['):
         tags = dataset_tag.strip('[]').split(',')
         dataset_tag = f"{tags[0].strip()}_and_more"
+
+    print(f"Dataset tag: {dataset_tag}")
     lst = [
         f"policy:{cfg.policy.type}",
         f"dataset:{dataset_tag}",
