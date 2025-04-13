@@ -63,7 +63,6 @@ class TrainPipelineConfig(HubMixin):
     scheduler: LRSchedulerConfig | None = None
     eval: EvalConfig = field(default_factory=EvalConfig)
     wandb: WandBConfig = field(default_factory=WandBConfig)
-    offline: bool = False
 
     def __post_init__(self):
         self.checkpoint_path = None

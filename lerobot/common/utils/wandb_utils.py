@@ -75,7 +75,7 @@ class WandBLogger:
         os.environ["WANDB_SILENT"] = "True"
         os.environ["WANDB_DIR"] = str(self.log_dir)
         os.environ["WANDB_DATA_DIR"] = str(self.log_dir)
-        os.environ["WANDB_MODE"] = "dryrun" if self.cfg.offline else "run"
+        os.environ["WANDB_MODE"] = "dryrun" if self.cfg.mode == "offline" else "run"
 
         import wandb
 
