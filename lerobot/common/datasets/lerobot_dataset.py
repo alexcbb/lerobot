@@ -69,6 +69,7 @@ from lerobot.common.datasets.video_utils import (
     VideoFrame,
     decode_video_frames,
     encode_video_frames,
+    get_safe_default_codec,
     get_video_info,
 )
 from lerobot.common.robot_devices.robots.utils import Robot
@@ -462,7 +463,7 @@ class LeRobotDataset(torch.utils.data.Dataset):
             download_videos (bool, optional): Flag to download the videos. Note that when set to True but the
                 video files are already present on local disk, they won't be downloaded again. Defaults to
                 True.
-            video_backend (str | None, optional): Video backend to use for decoding videos. Defaults to torchcodec.
+            video_backend (str | None, optional): Video backend to use for decoding videos. Defaults to torchcodec when available int the platform; otherwise, defaults to 'pyav'.
                 You can also use the 'pyav' decoder used by Torchvision, which used to be the default option, or 'video_reader' which is another decoder of Torchvision.
         """
         super().__init__()
@@ -473,7 +474,7 @@ class LeRobotDataset(torch.utils.data.Dataset):
         self.episodes = episodes
         self.tolerance_s = tolerance_s
         self.revision = revision if revision else CODEBASE_VERSION
-        self.video_backend = video_backend if video_backend else "torchcodec"
+        self.video_backend = video_backend if video_backend else get_safe_default_codec()
         self.delta_indices = None
 
         # Unused attributes
@@ -766,6 +767,7 @@ class LeRobotDataset(torch.utils.data.Dataset):
         # size and task are special cases that are not in self.features
         ep_buffer["size"] = 0
         ep_buffer["task"] = []
+        ep_buffer["grid_position"] = []
         for key in self.features:
             ep_buffer[key] = current_ep_idx if key == "episode_index" else []
         return ep_buffer
@@ -794,7 +796,6 @@ class LeRobotDataset(torch.utils.data.Dataset):
         for name in frame:
             if isinstance(frame[name], torch.Tensor):
                 frame[name] = frame[name].numpy()
-
         validate_frame(frame, self.features)
 
         if self.episode_buffer is None:
@@ -963,6 +964,35 @@ class LeRobotDataset(torch.utils.data.Dataset):
         for ep_idx in range(self.meta.total_episodes):
             self.encode_episode_videos(ep_idx)
 
+    def save_modified_dataset(self):
+        """
+        Save the modified hf_dataset back to disk.
+        This method should be called after making modifications like adding annotations.
+        """
+        # Group by episode_index
+        episode_indices = set(torch.stack(self.hf_dataset["episode_index"]).numpy())
+        
+        for ep_idx in episode_indices:
+            # Filter dataset for the current episode
+            def filter_func(example):
+                return example["episode_index"] == ep_idx
+            
+            ep_dataset = self.hf_dataset.filter(filter_func)
+            
+            # Convert to format expected by to_parquet
+            ep_dataset.set_format(None)  # Reset format if any was set
+            
+            # Get the path for this episode's parquet file
+            ep_data_path = self.root / self.meta.get_data_file_path(ep_index=ep_idx)
+            ep_data_path.parent.mkdir(parents=True, exist_ok=True)
+            
+            # Save to parquet
+            print(f"Saving modified data for episode {ep_idx} to {ep_data_path}")
+            ep_dataset.to_parquet(ep_data_path)
+        
+        # Save updated metadata
+        write_info(self.meta.info, self.meta.root)
+
     def encode_episode_videos(self, episode_index: int) -> dict:
         """
         Use ffmpeg to convert frames stored as png into mp4 videos.
@@ -1027,7 +1057,7 @@ class LeRobotDataset(torch.utils.data.Dataset):
         obj.delta_timestamps = None
         obj.delta_indices = None
         obj.episode_data_index = None
-        obj.video_backend = video_backend if video_backend is not None else "torchcodec"
+        obj.video_backend = video_backend if video_backend is not None else get_safe_default_codec()
         return obj
 
 
@@ -1044,7 +1074,7 @@ class MultiLeRobotDataset(torch.utils.data.Dataset):
         root: str | Path | None = None,
         episodes: dict | None = None,
         image_transforms: Callable | None = None,
-        delta_timestamps: dict[list[float]] | None = None,
+         delta_timestamps: dict[str, dict[list[float]]] | None = None,
         tolerances_s: dict | None = None,
         download_videos: bool = True,
         video_backend: str | None = None,
@@ -1052,7 +1082,7 @@ class MultiLeRobotDataset(torch.utils.data.Dataset):
         super().__init__()
         self.repo_ids = repo_ids
         self.root = Path(root) if root else HF_LEROBOT_HOME
-        self.tolerances_s = tolerances_s if tolerances_s else {repo_id: 1e-4 for repo_id in repo_ids}
+        self.tolerances_s = tolerances_s if tolerances_s else dict.fromkeys(repo_ids, 0.0001)
         # Construct the underlying datasets passing everything but `transform` and `delta_timestamps` which
         # are handled by this class.
         self._datasets = [
@@ -1061,7 +1091,7 @@ class MultiLeRobotDataset(torch.utils.data.Dataset):
                 root=self.root / repo_id,
                 episodes=episodes[repo_id] if episodes else None,
                 image_transforms=image_transforms,
-                delta_timestamps=delta_timestamps,
+                delta_timestamps=delta_timestamps[repo_id],
                 tolerance_s=self.tolerances_s[repo_id],
                 download_videos=download_videos,
                 video_backend=video_backend,

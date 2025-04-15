@@ -72,6 +72,7 @@ DEFAULT_FEATURES = {
     "episode_index": {"dtype": "int64", "shape": (1,), "names": None},
     "index": {"dtype": "int64", "shape": (1,), "names": None},
     "task_index": {"dtype": "int64", "shape": (1,), "names": None},
+    "grid_position": {"dtype": "float32", "shape": (2,), "names": None},
 }
 
 
@@ -240,7 +241,7 @@ def load_episodes_stats(local_dir: Path) -> dict:
 def backward_compatible_episodes_stats(
     stats: dict[str, dict[str, np.ndarray]], episodes: list[int]
 ) -> dict[str, dict[str, np.ndarray]]:
-    return {ep_idx: stats for ep_idx in episodes}
+    return dict.fromkeys(episodes, stats)
 
 
 def load_image_as_numpy(
@@ -700,7 +701,7 @@ class IterableNamespace(SimpleNamespace):
 
 def validate_frame(frame: dict, features: dict):
     optional_features = {"timestamp"}
-    expected_features = (set(features) - set(DEFAULT_FEATURES.keys())) | {"task"}
+    expected_features = (set(features) - set(DEFAULT_FEATURES.keys())) | {"task", "grid_position"}
     actual_features = set(frame.keys())
 
     error_message = validate_features_presence(actual_features, expected_features, optional_features)
@@ -709,7 +710,7 @@ def validate_frame(frame: dict, features: dict):
         error_message += validate_feature_string("task", frame["task"])
 
     common_features = actual_features & (expected_features | optional_features)
-    for name in common_features - {"task"}:
+    for name in common_features - {"task", "grid_position"}:
         error_message += validate_feature_dtype_and_shape(name, features[name], frame[name])
 
     if error_message:

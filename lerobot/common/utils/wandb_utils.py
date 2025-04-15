@@ -25,12 +25,17 @@ from termcolor import colored
 from lerobot.common.constants import PRETRAINED_MODEL_DIR
 from lerobot.configs.train import TrainPipelineConfig
 
-
 def cfg_to_group(cfg: TrainPipelineConfig, return_list: bool = False) -> list[str] | str:
     """Return a group name for logging. Optionally returns group name as list."""
+    
+    # TODO: these were used to support multirepodataset in the past - think how they could be supported in new way?
+    dataset_tag = cfg.dataset.repo_id
+    if dataset_tag.startswith('['):
+        tags = dataset_tag.strip('[]').split(',')
+        dataset_tag = f"{tags[0].strip()}_and_more"
     lst = [
         f"policy:{cfg.policy.type}",
-        f"dataset:{cfg.dataset.repo_id}",
+        f"dataset:{dataset_tag}",
         f"seed:{cfg.seed}",
     ]
     if cfg.env is not None:
@@ -64,9 +69,14 @@ class WandBLogger:
         self.job_name = cfg.job_name
         self.env_fps = cfg.env.fps if cfg.env else None
         self._group = cfg_to_group(cfg)
+        
 
         # Set up WandB.
         os.environ["WANDB_SILENT"] = "True"
+        os.environ["WANDB_DIR"] = str(self.log_dir)
+        os.environ["WANDB_DATA_DIR"] = str(self.log_dir)
+        os.environ["WANDB_MODE"] = "dryrun" if self.cfg.mode == "offline" else "run"
+
         import wandb
 
         wandb_run_id = (
@@ -83,16 +93,18 @@ class WandBLogger:
             name=self.job_name,
             notes=self.cfg.notes,
             tags=cfg_to_group(cfg, return_list=True),
-            dir=self.log_dir,
+            # dir=self.log_dir,
             config=cfg.to_dict(),
             # TODO(rcadene): try set to True
             save_code=False,
             # TODO(rcadene): split train and eval, and run async eval with job_type="eval"
             job_type="train_eval",
             resume="must" if cfg.resume else None,
+            mode=self.cfg.mode,
         )
         print(colored("Logs will be synced with wandb.", "blue", attrs=["bold"]))
         logging.info(f"Track this run --> {colored(wandb.run.get_url(), 'yellow', attrs=['bold'])}")
+        logging.info(f"Run dir --> {colored(wandb.run.dir, 'yellow', attrs=['bold'])}")
         self._wandb = wandb
 
     def log_policy(self, checkpoint_dir: Path):

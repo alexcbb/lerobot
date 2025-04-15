@@ -28,6 +28,7 @@ from lerobot.common.datasets.factory import make_dataset
 from lerobot.common.datasets.sampler import EpisodeAwareSampler
 from lerobot.common.datasets.utils import cycle
 from lerobot.common.envs.factory import make_env
+from lerobot.common.datasets.lerobot_dataset import MultiLeRobotDataset
 from lerobot.common.optim.factory import make_optimizer_and_scheduler
 from lerobot.common.policies.factory import make_policy
 from lerobot.common.policies.pretrained import PreTrainedPolicy
@@ -133,12 +134,29 @@ def train(cfg: TrainPipelineConfig):
     eval_env = None
     if cfg.eval_freq > 0 and cfg.env is not None:
         logging.info("Creating env")
-        eval_env = make_env(cfg.env, n_envs=cfg.eval.batch_size)
+        eval_env = make_env(cfg.env, n_envs=cfg.eval.batch_size, use_async_envs=cfg.eval.use_async_envs)
+
+    if isinstance(dataset, MultiLeRobotDataset):
+        
+        """ds_meta = {}
+        for dataset in dataset._datasets:
+            current_stats = dataset.smeta.stats
+            for k, v in current_stats.items():
+                if k not in ds_meta:
+                    ds_meta[k] = v
+                else:
+                    ds_meta[k]["min"] = np.array(min(ds_meta[k]["min"], v["min"].item()))
+                    ds_meta[k]["max"] = np.array(max(ds_meta[k]["max"], v["max"].item()))
+                    ds_meta[k]["mean"] = np.array((ds_meta[k]["mean"] + v["mean"].item()) / 2)
+                    ds_meta[k]["std"] = np.array(max(ds_meta[k]["std"].item(), v["std"].item()))"""
+        ds_meta = dataset._datasets[0].meta
+    else:
+        ds_meta = dataset.meta
 
     logging.info("Creating policy")
     policy = make_policy(
         cfg=cfg.policy,
-        ds_meta=dataset.meta,
+        ds_meta=ds_meta,
     )
 
     logging.info("Creating optimizer and scheduler")
