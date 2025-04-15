@@ -268,7 +268,7 @@ def run_server(
             global full_dataset
             global current_dataset
             if start_date:
-                full_dataset = full_dataset[full_dataset['creation_date'] >= start_date]
+                current_dataset = full_dataset[full_dataset['creation_date'] >= start_date]
 
             try:
                 total_datasets, repo_ids, filtered_datasets = filtering_metadata(
@@ -287,9 +287,9 @@ def run_server(
             except Exception as e:
                 print(f"Error while filtering datasets: {e}")
                 return jsonify({'datasets': [], 'totalDatasets': 0, 'error': str(e)})
-
         elif int(request.form['finished']) == 1:
             return redirect(url_for('list_datasets'))
+        
     @app.route('/datasets')
     def list_datasets():
         global filtered_data
