@@ -6,6 +6,7 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <script>
         const robotFpsMap = JSON.parse('{{ robot_fps_map | safe }}');
+
         function toggleCheckboxes(action, group) {
             const checkboxes = document.querySelectorAll(`input[name="${group}"]`);
             checkboxes.forEach(checkbox => {
@@ -39,6 +40,7 @@
             const fpsCheckboxes = document.querySelectorAll('input[name="fps"]');
             fpsCheckboxes.forEach(checkbox => checkbox.addEventListener('change', submitForm));
         }
+
         function submitForm() {
             const formData = new FormData(document.querySelector('form'));
             fetch('/submit', {
@@ -82,6 +84,7 @@
             document.getElementById('frames').addEventListener('change', updateFrameValue);
             document.getElementById('episodes').addEventListener('change', updateEpisodeValue);
             document.getElementById('tasks').addEventListener('change', submitForm);
+            document.getElementById('startDate').addEventListener('change', submitForm);
 
             updateFpsOptions(true);
         });
@@ -145,6 +148,11 @@
                 <div>
                     <label for="episodes" class="block text-gray-700">Minimum number of episodes : <span id="episodeValue">{{ min_eps }}</span> (max. 200)</label>
                     <input type="range" id="episodes" name="episodes" min="0" max="200" value="{{ min_eps }}" class="mt-1 p-2 w-full" oninput="updateEpisodeValue()">
+                </div>
+
+                <div>
+                    <label for="startDate" class="block text-gray-700">Start Date:</label>
+                    <input type="date" id="startDate" name="startDate" class="mt-1 p-2 w-full" onchange="submitForm()">
                 </div>
 
                 <div>

@@ -257,16 +257,19 @@ def run_server(
 
     @app.route('/submit', methods=['POST'])
     def submit_form():
-        global current_repo_id
-        global filtered_data
         if int(request.form['finished']) == 0:
             selected_frames = int(request.form['frames'])
             selected_episodes = int(request.form['episodes'])
             selected_robot_type = request.form.getlist('robot_type')
             selected_fps = [int(float(el)) for el in request.form.getlist('fps')]
             selected_tasks = int(request.form['tasks'])
-            global current_dataset
+            start_date = request.form.get('startDate')
+
             global full_dataset
+            global current_dataset
+            if start_date:
+                full_dataset = full_dataset[full_dataset['creation_date'] >= start_date]
+
             try:
                 total_datasets, repo_ids, filtered_datasets = filtering_metadata(
                     full_dataset,
@@ -277,19 +280,16 @@ def run_server(
                     selected_fps,
                     selected_tasks
                 )
-                assert total_datasets > 0, "No dataset found with the specified filters"
-                filtered_data = filtered_datasets
-                current_dataset = filtered_datasets
-                current_repo_id = repo_ids
+                if total_datasets == 0:
+                    return jsonify({'datasets': [], 'totalDatasets': 0, 'error': 'No dataset found with the specified filters'})
+                dataset_infos = get_dataset_infos(filtered_datasets)
+                return jsonify({'datasets': dataset_infos, 'totalDatasets': total_datasets})
             except Exception as e:
                 print(f"Error while filtering datasets: {e}")
-                return jsonify({'datasets': [], 'totalDatasets': 0})
+                return jsonify({'datasets': [], 'totalDatasets': 0, 'error': str(e)})
 
-            dataset_infos = get_dataset_infos(current_dataset)
-            return jsonify({'datasets': dataset_infos, 'totalDatasets': total_datasets})
         elif int(request.form['finished']) == 1:
             return redirect(url_for('list_datasets'))
-
     @app.route('/datasets')
     def list_datasets():
         global filtered_data
