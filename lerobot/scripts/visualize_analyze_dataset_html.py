@@ -94,6 +94,7 @@ def filtering_metadata(
         filter_unlabeled_tasks,
         fps,
         max_tasks,
+        start_date
     ):
     filtered_datasets = df[
         (df['total_episodes'] >= num_episodes) &
@@ -103,6 +104,7 @@ def filtering_metadata(
         (df['robot_type'].isin(robot_set)) &
         (df['fps'].isin(fps)) &
         (df['total_tasks'] < max_tasks) &
+        (df['creation_date'] >= start_date) &
         (~df['repo_id'].str.contains("test")) &
         (~df['repo_id'].str.contains("eval"))
     ]
@@ -267,9 +269,6 @@ def run_server(
 
             global full_dataset
             global current_dataset
-            if start_date:
-                current_dataset = full_dataset[full_dataset['creation_date'] >= start_date]
-
             try:
                 total_datasets, repo_ids, filtered_datasets = filtering_metadata(
                     full_dataset,
@@ -278,7 +277,8 @@ def run_server(
                     selected_robot_type,
                     False,
                     selected_fps,
-                    selected_tasks
+                    selected_tasks,
+                    start_date
                 )
                 if total_datasets == 0:
                     return jsonify({'datasets': [], 'totalDatasets': 0, 'error': 'No dataset found with the specified filters'})
