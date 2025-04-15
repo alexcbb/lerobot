@@ -283,6 +283,8 @@ def run_server(
                 if total_datasets == 0:
                     return jsonify({'datasets': [], 'totalDatasets': 0, 'error': 'No dataset found with the specified filters'})
                 dataset_infos = get_dataset_infos(filtered_datasets)
+                global filtered_data
+                filtered_data = filtered_datasets
                 return jsonify({'datasets': dataset_infos, 'totalDatasets': total_datasets})
             except Exception as e:
                 print(f"Error while filtering datasets: {e}")
