@@ -40,6 +40,9 @@ filtered_datasets = MultiLeRobotDataset([
         <button onclick="downloadJson()" class="px-8 py-4 bg-green-600 text-white font-semibold rounded-lg shadow-md hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-opacity-75">
             Download JSON of annotated tasks
         </button>
+        <button onclick="downloadCsv()" class="px-8 py-4 bg-purple-600 text-white font-semibold rounded-lg shadow-md hover:bg-purple-700 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-opacity-75">
+            Download CSV of current dataset
+        </button>
     </div>
 
     <script>
@@ -62,6 +65,10 @@ filtered_datasets = MultiLeRobotDataset([
 
         function downloadJson() {
             document.getElementById('downloadForm').submit();
+        }
+
+        function downloadCsv() {
+            window.location.href = '/download_csv';
         }
     </script>
 </body>
