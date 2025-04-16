@@ -68,7 +68,7 @@ import time
 import numpy as np
 import pandas as pd
 import requests
-from flask import Flask, redirect, render_template, request, url_for, jsonify, send_file
+from flask import Flask, redirect, render_template, request, url_for, jsonify, send_file, make_response
 
 from lerobot.common.datasets.lerobot_dataset import LeRobotDataset
 from lerobot.common.datasets.utils import IterableNamespace
@@ -445,6 +445,15 @@ def run_server(
             repo_ids=all_repo_ids,
             tasks_mapping=map_repo_id_to_tasks)
     
+    @app.route('/download_csv')
+    def download_csv():
+        global current_dataset
+        output = io.StringIO()
+        current_dataset.to_csv(output)
+        response = make_response(output.getvalue())
+        response.headers['Content-Disposition'] = 'attachment; filename=current_dataset.csv'
+        response.headers['Content-Type'] = 'text/csv'
+        return response
 
     @app.route('/download_json', methods=['POST'])
     def download_json():
