@@ -222,7 +222,7 @@ def run_server(
                 # Check for tasks
                 merged_df = df.merge(csv_df[keys], on='repo_id', how='left')
                 for key in keys:
-                    if key is not 'repo_id':
+                    if key != 'repo_id':
                         df[key] = merged_df[key+'_y']
             full_dataset = df
             current_dataset = df
@@ -243,7 +243,7 @@ def run_server(
                 full_dataset = df
                 current_dataset = df
                 filtered_data = df
-                
+
                 dataset_infos = get_dataset_infos(current_dataset)
                 min_eps, min_frames, robot_types, fps_filter, task_count, \
                     current_number_of_datasets, robot_fps = extract_data_from_current(current_dataset)
@@ -434,22 +434,22 @@ def run_server(
         
     @app.route('/final_filtering')
     def final_filtering():
-        global current_dataset
-        all_repo_ids = current_dataset['repo_id'].to_list()
+        global filtered_data
+        all_repo_ids = filtered_data['repo_id'].to_list()
         global map_repo_id_to_tasks
         """with open('tasks_mapping.json', 'w') as f:
             json.dump(map_repo_id_to_tasks, f)"""
         return render_template(
             'final_filtering.html', 
-            number_datasets=len(current_dataset),
+            number_datasets=len(filtered_data),
             repo_ids=all_repo_ids,
             tasks_mapping=map_repo_id_to_tasks)
     
     @app.route('/download_csv')
     def download_csv():
-        global current_dataset
+        global filtered_data
         output = io.StringIO()
-        current_dataset.to_csv(output)
+        filtered_data.to_csv(output)
         response = make_response(output.getvalue())
         response.headers['Content-Disposition'] = 'attachment; filename=current_dataset.csv'
         response.headers['Content-Type'] = 'text/csv'
