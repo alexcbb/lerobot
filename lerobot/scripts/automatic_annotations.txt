@@ -1,0 +1,6 @@
+andlyu/so100_indoor_1: ['Pick up the green ornament from the tree and place it on the table.', 'Remove the black ornament from the left side of the tree.']
+sihyun77/sihyun_3_17_2: ['Pick up the red ball from the top left square and place it in the top right square.', 'Pick up the red ball from the bottom left square and place it in the bottom right square.']
+lirislab/sweep_tissue_cube: ['Pick up the red block on the left and place it on the white cloth.', 'Move the white cloth to the right and cover the red block.']
+gxy1111/so100_pick_place: ['Pick up the small white ball with green markings and place it in the white bowl.', 'Move the white bowl with the red handle to the left of the small white ball with green markings.']
+CrazyYhang/A1234-B-C_mvA2B: ['Move the red ring from the middle peg to the right peg.', 'Transfer the red ring from the middle peg to the right peg.']
+lirislab/open_top_drawer_teabox: ['Pick up the orange object and place it in the top drawer of the wooden cabinet.', 'Move the white roll of tape from the right side of the table to the top drawer of the wooden cabinet.']

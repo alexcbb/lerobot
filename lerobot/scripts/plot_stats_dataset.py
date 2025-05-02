@@ -5,13 +5,13 @@ import pytz
 import matplotlib.dates as mdates
 
 # Load the CSV file
-df = pd.read_csv('lerobot_datasets.csv')
+df = pd.read_csv('lerobot_datasets_last.csv')
 
 # Convert the 'creation_date' column to datetime and ensure it is timezone-aware
 df['creation_date'] = pd.to_datetime(df['creation_date']).dt.tz_convert('UTC')
 
 # Calculate the date one year ago from today, making it timezone-aware
-one_year_ago = datetime.now(pytz.UTC) - timedelta(days=365)
+one_year_ago = datetime.now(pytz.UTC) - timedelta(days=500)
 
 # Filter the data for the last year
 df_last_year = df[df['creation_date'] >= one_year_ago]
