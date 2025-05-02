@@ -164,10 +164,10 @@ def run_server(
     csv_file = "./lerobot_datasets.csv"
     @app.route('/')
     def homepage():
-        global full_dataset
-        global current_repo_id
-        global filtered_data
-        global current_dataset
+        global full_dataset # CSV content
+        global current_repo_id # Current repo_id being visualized for manual filtering
+        global filtered_data # Filtered datasets after applying filters
+        global current_dataset # Current datasets before filtering
         global map_repo_id_to_tasks
         full_dataset = pd.DataFrame()
         current_dataset = pd.DataFrame()
@@ -222,7 +222,7 @@ def run_server(
                 # Check for tasks
                 merged_df = df.merge(csv_df[keys], on='repo_id', how='left')
                 for key in keys:
-                    if key is not 'repo_id':
+                    if key != 'repo_id':
                         df[key] = merged_df[key+'_y']
             full_dataset = df
             current_dataset = df
@@ -243,7 +243,7 @@ def run_server(
                 full_dataset = df
                 current_dataset = df
                 filtered_data = df
-                
+
                 dataset_infos = get_dataset_infos(current_dataset)
                 min_eps, min_frames, robot_types, fps_filter, task_count, \
                     current_number_of_datasets, robot_fps = extract_data_from_current(current_dataset)
@@ -285,6 +285,7 @@ def run_server(
                 dataset_infos = get_dataset_infos(filtered_datasets)
                 global filtered_data
                 filtered_data = filtered_datasets
+                current_dataset = filtered_datasets
                 return jsonify({'datasets': dataset_infos, 'totalDatasets': total_datasets})
             except Exception as e:
                 print(f"Error while filtering datasets: {e}")
@@ -398,6 +399,13 @@ def run_server(
                         episode_id=0,
                     )
                 )
+            else:
+                all_repo_ids = current_dataset['repo_id'].to_list()
+                return render_template(
+                    'final_filtering.html', 
+                    number_datasets=len(current_dataset),
+                    repo_ids=all_repo_ids,
+                    tasks_mapping=map_repo_id_to_tasks)
         return redirect(url_for('list_datasets'))
 
     @app.route("/filter", methods=['POST'])
@@ -430,15 +438,14 @@ def run_server(
             return render_template(
                 'final_filtering.html', 
                 number_datasets=len(current_dataset),
-                repo_ids=all_repo_ids)
+                repo_ids=all_repo_ids,
+                tasks_mapping=map_repo_id_to_tasks)
         
     @app.route('/final_filtering')
     def final_filtering():
         global current_dataset
         all_repo_ids = current_dataset['repo_id'].to_list()
         global map_repo_id_to_tasks
-        """with open('tasks_mapping.json', 'w') as f:
-            json.dump(map_repo_id_to_tasks, f)"""
         return render_template(
             'final_filtering.html', 
             number_datasets=len(current_dataset),
@@ -517,6 +524,11 @@ def get_episode_data(dataset: LeRobotDataset | IterableNamespace, episode_index)
         episode_chunk=int(episode_index) // dataset.chunks_size, episode_index=episode_index
     )
     df = pd.read_parquet(url)
+    # only keep columns that are in df
+    for col in selected_columns:
+        if col not in df.columns:
+            selected_columns.remove(col)
+            ignored_columns.append(col)
     data = df[selected_columns]  # Select specific columns
 
     rows = np.hstack(

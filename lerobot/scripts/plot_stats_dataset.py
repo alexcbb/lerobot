@@ -16,13 +16,10 @@ one_year_ago = datetime.now(pytz.UTC) - timedelta(days=500)
 # Filter the data for the last year
 df_last_year = df[df['creation_date'] >= one_year_ago]
 
-# Group by date and robot type, then count the number of datasets
 grouped_data = df_last_year.groupby(['creation_date', 'robot_type']).size().reset_index(name='count')
 
-# Cumulative sum of datasets added per day
 cumulative_data = grouped_data.groupby('creation_date')['count'].sum().cumsum().reset_index()
 
-# Plot the cumulative number of datasets per day
 plt.figure(figsize=(14, 7))
 plt.plot(cumulative_data['creation_date'], cumulative_data['count'], marker='o', color='b', linewidth=2)
 plt.title('LeRobot dataset uploaded last year', fontsize=16, fontweight='bold')
@@ -34,17 +31,12 @@ plt.gca().xaxis.set_major_formatter(mdates.DateFormatter('%Y-%m-%d'))
 plt.tight_layout()
 plt.show()
 
-# Identify the most frequent robot types
-top_n_robots = 10  # Change this value to show the top N robots
+top_n_robots = 10 
 most_frequent_robots = grouped_data.groupby('robot_type')['count'].sum().nlargest(top_n_robots).index
 
-# Filter the data for the most frequent robot types
 filtered_data = grouped_data[grouped_data['robot_type'].isin(most_frequent_robots)]
-
-# Sort the filtered data by the count of datasets
 sorted_data = filtered_data.groupby('robot_type')['count'].sum().sort_values(ascending=False)
 
-# Plot the number of datasets per robot type for the most frequent robots
 plt.figure(figsize=(14, 7))
 sorted_data.plot(kind='bar', color=['#FF9999','#66B2FF','#99FF99','#FFCC99','#FF6666'])
 plt.title(f'Number of Datasets for the {top_n_robots} most frequent robots', fontsize=16, fontweight='bold')
